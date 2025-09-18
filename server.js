@@ -23,7 +23,12 @@ wss.on('connection', (ws) => {
 
         else if (data.type === 'register') {
             const thisRoomId = data.roomId;
-            const secret = data.secret;
+            const secret = data.roomSecret;
+
+            if (!thisRoomId || !secret) {
+                ws.send(JSON.stringify({ type: 'error', message: 'roomId and roomSecret are required to register' }));
+                return;
+            }
             
             if (rooms[thisRoomId]) {
                 if (rooms[thisRoomId].secret && rooms[thisRoomId].secret !== secret) {
@@ -39,12 +44,12 @@ wss.on('connection', (ws) => {
                 });
             } else {
                 rooms[thisRoomId] = {
-                    secret: data.secret || null,
+                    secret: secret || null,
                     clients: new Set(),
                 }
 
                 rooms[thisRoomId].clients.add(ws);
-                console.log(`[LOG]   ${getTime()} > Client registered to room: ${thisRoomId}`);
+                console.log(`[LOG]   ${getTime()} > Client created room: ${thisRoomId}`);
             }
 
             console.log(`[LOG]   ${getTime()} > Client registered to room: ${thisRoomId}`);
@@ -80,7 +85,7 @@ wss.on('connection', (ws) => {
         } else {
             if (thisRoomIds) {
                 thisRoomIds.forEach((id) => {
-                    rooms[id].forEach(client => {
+                    rooms[id].clients.forEach(client => {
                         if (client.readyState === WebSocket.OPEN) {
                             client.send(`${message}`);
                         }
