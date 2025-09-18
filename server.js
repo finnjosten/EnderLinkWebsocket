@@ -5,15 +5,17 @@ const rooms = {};
 
 // Create WebSocket server
 const wss = new WebSocket.Server({ port: 10000 }, () => {
-    console.log('WebSocket server running on ws://localhost:10000');
+    console.log(`[LOG]   ${getTime()} > WebSocket server running on ws://{ip}:10000`);
 });
 
 wss.on('connection', (ws) => {
     let thisRoomIds = new Set(); // per-client serverId
-    console.log('Client connected');
+    console.log(`[LOG]   ${getTime()} > Client connected`);
 
     ws.on('message', (message) => {
         const data = JSON.parse(message);
+        console.log(`[DATA]  ${getTime()} >`);
+        console.log(data);
 
         if (data.type === 'ping') {
             ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
@@ -21,20 +23,32 @@ wss.on('connection', (ws) => {
 
         else if (data.type === 'register') {
             const thisRoomId = data.roomId;
-            thisRoomIds.add(thisRoomId); // store for this client
-            if (!thisRoomId) return;
-
-            if (!rooms[thisRoomId]) rooms[thisRoomId] = new Set();
-            rooms[thisRoomId].add(ws);
-
-            console.log(`Client registered to room: ${thisRoomId}`);
+            const secret = data.secret;
             
-            rooms[thisRoomId].forEach((client) => {
-                if (client.readyState === WebSocket.OPEN && client !== ws) {
-                    client.send(JSON.stringify({ type: 'ws_join', message: 'A client has joined this room!' }));
+            if (rooms[thisRoomId]) {
+                if (rooms[thisRoomId].secret && rooms[thisRoomId].secret !== secret) {
+                    ws.send(JSON.stringify({ type: 'error', message: 'Invalid secret for this room' }));
+                    return;
                 }
-            });
 
+                rooms[thisRoomId].clients.add(ws);
+                rooms[thisRoomId].clients.forEach((client) => {
+                    if (client.readyState === WebSocket.OPEN && client !== ws) {
+                        client.send(JSON.stringify({ type: 'ws_join', message: 'A client has joined this room!' }));
+                    }
+                });
+            } else {
+                rooms[thisRoomId] = {
+                    secret: data.secret || null,
+                    clients: new Set(),
+                }
+
+                rooms[thisRoomId].clients.add(ws);
+                console.log(`[LOG]   ${getTime()} > Client registered to room: ${thisRoomId}`);
+            }
+
+            console.log(`[LOG]   ${getTime()} > Client registered to room: ${thisRoomId}`);
+            thisRoomIds.add(thisRoomId); // store for this client
             ws.send(JSON.stringify({ type: 'registered', roomId: thisRoomId }));
 
         } else if (data.type === 'unregister') {
@@ -46,12 +60,21 @@ wss.on('connection', (ws) => {
                 return;
             }
 
-            rooms[thisRoomId].delete(ws);
-            if (rooms[thisRoomId].size === 0) delete rooms[thisRoomId];
+            rooms[thisRoomId].clients.delete(ws);
+
+            if (rooms[thisRoomId].clients.size === 0) {
+                delete rooms[thisRoomId];
+            } else {
+                rooms[thisRoomId].clients.forEach((client) => {
+                    if (client.readyState === WebSocket.OPEN && client !== ws) {
+                        client.send(JSON.stringify({ type: 'ws_leave', message: 'A client has left this room!' }));
+                    }
+                });
+            }
 
             thisRoomIds.delete(thisRoomId);
 
-            console.log(`Client unregistered from room: ${thisRoomId}`);
+            console.log(`[LOG]   ${getTime()} > Client unregistered from room: ${thisRoomId}`);
 
             ws.send(JSON.stringify({ type: 'unregistered', roomId: thisRoomId }));
         } else {
@@ -76,6 +99,12 @@ wss.on('connection', (ws) => {
                 }
             });
         }
-        console.log('Client disconnected');
+        console.log("[LOG]   " + getTime() + " > Client disconnected");
     });
 });
+
+
+
+function getTime() {
+    return new Date().toTimeString().split(' ')[0];
+}
