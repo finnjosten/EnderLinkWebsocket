@@ -1,6 +1,12 @@
 # EnderLink WebSocket
 The **bridge** that powers EnderLink’s connection between **Minecraft** and **Discord** (or other platforms).  
 This WebSocket server relays all chat and event data, making real-time communication possible.  
+  
+
+### Small note
+If you decide to not create your own websocket but use the default provided websocket (`james.vacso.cloud:10000` or `ws.james.vacso.cloud`) you might wonder what code this runs and how privacy focused it is.  
+Our websocket runs exactly this code that you can find here. All changes we make on our own websocket are pushed to this github repo.  
+This both for our self (version control) and for you so you can easily view what is running the websocket and how it works.  
 
 ---
 
