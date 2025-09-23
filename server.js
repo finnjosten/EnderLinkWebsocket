@@ -14,8 +14,6 @@ wss.on('connection', (ws) => {
 
     ws.on('message', (message) => {
         const data = JSON.parse(message);
-        console.log(`[DATA]  ${getTime()} >`);
-        console.log(data);
 
         if (data.type === 'ping') {
             ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
@@ -98,9 +96,10 @@ wss.on('connection', (ws) => {
     ws.on('close', () => {
         if (thisRoomIds) {
             thisRoomIds.forEach(id => {
-                if (rooms[id]) {
-                    rooms[id].delete(ws);
-                    if (rooms[id].size === 0) delete rooms[id];
+                const room = rooms[id];
+                if (room) {
+                    room.clients.delete(ws);
+                    if (room.clients.size === 0) delete rooms[id];
                 }
             });
         }
